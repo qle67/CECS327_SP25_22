@@ -36,9 +36,11 @@ class SocketListener(Thread):
                 print(f"Sent message: '{message}' to address: {address}")
                 data: bytes = client_socket.recv(1024)
                 print(f"Received message from address {address}: '{data.decode('utf-8')}'")
+                message: str = input("Please enter number for one of following commands or enter 'q' to exit: \n 1. What is the average moisture inside my kitchen fridge in the past three hours?\n 2. What is the average water consumption per cycle in my smart dishwasher?\n 3. Which device consumed more electricity among my three IoT devices (two refrigerators and a dishwasher)?\n")
+                continue
 
             #Reject any other input with a user-friendly message
-            message: str = input("Sorry, this query cannot be processed. Please try one of the following or enter 'q' to exit: \n 1. What is the average moisture inside my kitchen fridge in the past three hours?\n 2. What is the average water consumption per cycle in my smart dishwasher?\n 3. Which device consumed more electricity among my three IoT devices (two refrigerators and a dishwasher)?\n")
+            message = input("Sorry, this query cannot be processed. Please try one of the following or enter 'q' to exit: \n 1. What is the average moisture inside my kitchen fridge in the past three hours?\n 2. What is the average water consumption per cycle in my smart dishwasher?\n 3. Which device consumed more electricity among my three IoT devices (two refrigerators and a dishwasher)?\n")
         client_socket.close()
 
 
