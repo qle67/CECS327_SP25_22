@@ -17,7 +17,7 @@ class SocketListener(Thread):
     def run(self):
         global connection, cursor, client_socket
         while True:
-            port: str = input("Please enter port number to listen on:") #Ask user for port number to listen
+            port: str = input("Please enter port number to listen on: ") #Ask user for port number to listen
             try:
                 if port.isnumeric() and 1 <= int(port) <= 65535:    #Check whether port is valid
                     break
@@ -66,11 +66,11 @@ class SocketListener(Thread):
                         timestamp_string = last_3_hours.strftime("%Y-%m-%d %H:%M:%S")
                         cursor.execute(f"SELECT payload FROM \"Dataniz_virtual\" WHERE time > '{timestamp_string}' AND payload::text LIKE '%Fridge1_Arduino_Due%';")    #Select payload(sensor reading) from database of fridge1 of past 3 hours
                         record = cursor.fetchall()      #Execute the command
-                        message = record.__str__()      #Return record in array
+                        message = record.__str__()      #Return JSON string record in array
                         message = message[1:-2]
                         items = message.split('),')     #split the array
                         moisture = 0
-                        for item in items:
+                        for item in items:  #loop each JSON object
                             item = item.strip().replace("'", '"')
                             item = item[1:-1]
                             json_data = json.loads(item)
@@ -79,7 +79,9 @@ class SocketListener(Thread):
                             except Exception:
                                 pass
                         average_moisture = moisture / len(items)        #Calculate the average of moisture percentage
-                        message = f"Average moisture inside your kitchen fridge in the past three hours is {average_moisture} RH%!"
+                        cursor.execute(f"SELECT \"customAttributes\"->'children'->0->'customAttributes'->'children'->0->'customAttributes'->'unit' FROM \"Dataniz_metadata\" WHERE \"assetType\" = 'Smart_Refrigerator';")
+                        unit = cursor.fetchone().__str__().replace("'", "").replace(",", "").replace("(", "").replace(")", "")
+                        message = f"Average moisture inside your kitchen fridge in the past three hours is {average_moisture} {unit}!"
                         client_socket.send(message.encode("utf-8"))         #Send back answer to the client
                         print(f"Sent message: '{message}' back to address {address} on port {port}")
                     elif message == '2':
@@ -98,7 +100,9 @@ class SocketListener(Thread):
                             except Exception:
                                 pass
                         average_water_consumption = water_consumption / len(items)
-                        message = f"Average water consumption per cycle in your smart dishwasher is {average_water_consumption} gallons/min!"
+                        cursor.execute(f"SELECT \"customAttributes\"->'children'->0->'customAttributes'->'children'->0->'customAttributes'->'unit' FROM \"Dataniz_metadata\" WHERE \"assetType\" = 'Smart_Dishwasher';")
+                        unit = cursor.fetchone().__str__().replace("'", "").replace(",", "").replace("(", "").replace(")", "")
+                        message = f"Average water consumption per cycle in your smart dishwasher is {average_water_consumption} {unit}!"
                         client_socket.send(message.encode("utf-8"))
                         print(f"Sent message: '{message}' back to address {address} on port {port}")
                     elif message == '3':
@@ -117,10 +121,8 @@ class SocketListener(Thread):
                             fridge1_resistance = float(json_data["Thermistor_Fridge1"])     #Extract thermistor sensor reading
                             fridge1_current = float(json_data["Ammeter_Fridge1"])           #Extract Ammeter sensor reading
                             fridge1_power += pow(fridge1_current, 2) * fridge1_resistance   #P = I^2 * R
-                            min_time = min(min_time, int(json_data["timestamp"]))
-                            max_time = max(max_time, int(json_data["timestamp"]))
-                        elapsed_time = (max_time - min_time) / 3600                             #Calculate hour
-                        fridge1_power = (fridge1_power / len(items) / 1000) * elapsed_time      #Calculate power in kWh
+                        elapsed_time = 1
+                        fridge1_power = (fridge1_power / 1000) * elapsed_time      #Calculate power in kWh(convert Wh to kWh)
 
                         cursor.execute(
                             f"SELECT payload FROM \"Dataniz_virtual\" WHERE payload::text LIKE '%Fridge2_Arduino_Due%';")      #Select payload(sensor reading) from database of fridge2
@@ -138,10 +140,8 @@ class SocketListener(Thread):
                             fridge2_resistance = float(json_data["Thermistor_Fridge2"])
                             fridge2_current = float(json_data["Ammeter_Fridge2"])
                             fridge2_power += pow(fridge2_current, 2) * fridge2_resistance
-                            min_time = min(min_time, int(json_data["timestamp"]))
-                            max_time = max(max_time, int(json_data["timestamp"]))
-                        elapsed_time = (max_time - min_time) / 3600
-                        fridge2_power = (fridge2_power / len(items) / 1000) * elapsed_time
+                        elapsed_time = 1
+                        fridge2_power = (fridge2_power / 1000) * elapsed_time
 
                         cursor.execute(
                             f"SELECT payload FROM \"Dataniz_virtual\" WHERE payload::text LIKE '%Dishwasher_RaspberryPi4%';")      #Select payload(sensor reading) from database of dishwasher
@@ -160,10 +160,8 @@ class SocketListener(Thread):
                             dishwasher_current = float(json_data["Ammeter_Dishwasher"])
                             dishwasher_resistance = 100 / dishwasher_water_flow                 #R = 100 / water flow
                             dishwasher_power += pow(dishwasher_current, 2) * dishwasher_resistance
-                            min_time = min(min_time, int(json_data["timestamp"]))
-                            max_time = max(max_time, int(json_data["timestamp"]))
-                        elapsed_time = (max_time - min_time) / 3600
-                        dishwasher_power = (dishwasher_power / len(items) / 1000) * elapsed_time
+                        elapsed_time = 2
+                        dishwasher_power = (dishwasher_power / 1000) * elapsed_time
 
                         device = ""
                         power = 0
